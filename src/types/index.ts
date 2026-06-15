@@ -84,6 +84,8 @@ export interface SupervisionNote {
   createdAt: string
   updatedAt: string
   relatedStoreId: string | null
+  relatedCaseId: string | null
+  relatedType: AnomalyType | ''
 }
 
 export interface QualityCheckItem {
@@ -102,4 +104,14 @@ export interface StageDuration {
   avgDays: number
   standardDays: number
   caseCount: number
+}
+
+export interface ExportRecord {
+  id: string
+  name: string
+  date: string
+  format: string
+  dataType: string
+  storeId: string
+  dateRange: { start: string; end: string }
 }

@@ -148,14 +148,14 @@ export const followupTasks: FollowupTask[] = Array.from({ length: 35 }, (_, i) =
 })
 
 export const supervisionNotes: SupervisionNote[] = [
-  { id: 'SN001', title: '浦东店托槽脱落集中问题', content: '近2周浦东店托槽脱落事件达9起，需排查粘接流程是否合规，建议下周二前完成整改。', assignedTo: '王质控', status: '跟进中', priority: '高', createdAt: '2026-06-01', updatedAt: '2026-06-10', relatedStoreId: 'S004' },
-  { id: 'SN002', title: '西城店方案变更率偏高', content: '西城店本月方案变更率18.5%，远超均值10.2%，需核实变更原因是否合理。', assignedTo: '刘督导', status: '待处理', priority: '高', createdAt: '2026-06-03', updatedAt: '2026-06-03', relatedStoreId: 'S003' },
-  { id: 'SN003', title: '朝阳门店超期复诊跟进', content: '朝阳门店8例超期复诊患者，其中3例超过60天未回诊，需逐一电话跟进。', assignedTo: '陈运营', status: '跟进中', priority: '中', createdAt: '2026-06-05', updatedAt: '2026-06-12', relatedStoreId: 'S001' },
-  { id: 'SN004', title: '全门店照片上传规范提醒', content: '近1月各门店关键节点照片缺失率约15%，需重申照片上传规范，6月底前完成全员培训。', assignedTo: '张主管', status: '待处理', priority: '中', createdAt: '2026-06-08', updatedAt: '2026-06-08', relatedStoreId: null },
-  { id: 'SN005', title: '海淀店复诊记录完整度整改', content: '海淀店复诊记录缺项率22%，主要缺失弓丝型号和患者反馈，已通知该店6月20日前完成整改。', assignedTo: '刘督导', status: '已关闭', priority: '中', createdAt: '2026-05-20', updatedAt: '2026-06-05', relatedStoreId: 'S002' },
-  { id: 'SN006', title: '天河店满意度调查异常', content: '天河店5月患者满意度评分3.2/5，低于均值4.1，退费倾向标记2例，需深入了解原因。', assignedTo: '李随访', status: '跟进中', priority: '高', createdAt: '2026-06-10', updatedAt: '2026-06-14', relatedStoreId: 'S005' },
-  { id: 'SN007', title: '何俊杰医生方案变更审核', content: '何俊杰医生在治24例中8例方案变更≥3次，需逐一审核变更合理性。', assignedTo: '王质控', status: '待处理', priority: '高', createdAt: '2026-06-12', updatedAt: '2026-06-12', relatedStoreId: 'S004' },
-  { id: 'SN008', title: '月度附件丢失率汇总', content: '5月全部门店附件丢失率3.8%，较4月上升0.6个百分点，需持续关注趋势。', assignedTo: '张主管', status: '已关闭', priority: '低', createdAt: '2026-06-01', updatedAt: '2026-06-08', relatedStoreId: null },
+  { id: 'SN001', title: '浦东店托槽脱落集中问题', content: '近2周浦东店托槽脱落事件达9起，需排查粘接流程是否合规，建议下周二前完成整改。', assignedTo: '王质控', status: '跟进中', priority: '高', createdAt: '2026-06-01', updatedAt: '2026-06-10', relatedStoreId: 'S004', relatedCaseId: null, relatedType: '托槽脱落' },
+  { id: 'SN002', title: '西城店方案变更率偏高', content: '西城店本月方案变更率18.5%，远超均值10.2%，需核实变更原因是否合理。', assignedTo: '刘督导', status: '待处理', priority: '高', createdAt: '2026-06-03', updatedAt: '2026-06-03', relatedStoreId: 'S003', relatedCaseId: null, relatedType: '方案多次变更' },
+  { id: 'SN003', title: '朝阳门店超期复诊跟进', content: '朝阳门店8例超期复诊患者，其中3例超过60天未回诊，需逐一电话跟进。', assignedTo: '陈运营', status: '跟进中', priority: '中', createdAt: '2026-06-05', updatedAt: '2026-06-12', relatedStoreId: 'S001', relatedCaseId: null, relatedType: '' },
+  { id: 'SN004', title: '全门店照片上传规范提醒', content: '近1月各门店关键节点照片缺失率约15%，需重申照片上传规范，6月底前完成全员培训。', assignedTo: '张主管', status: '待处理', priority: '中', createdAt: '2026-06-08', updatedAt: '2026-06-08', relatedStoreId: null, relatedCaseId: null, relatedType: '照片缺失' },
+  { id: 'SN005', title: '海淀店复诊记录完整度整改', content: '海淀店复诊记录缺项率22%，主要缺失弓丝型号和患者反馈，已通知该店6月20日前完成整改。', assignedTo: '刘督导', status: '已关闭', priority: '中', createdAt: '2026-05-20', updatedAt: '2026-06-05', relatedStoreId: 'S002', relatedCaseId: null, relatedType: '复诊记录缺项' },
+  { id: 'SN006', title: '天河店满意度调查异常', content: '天河店5月患者满意度评分3.2/5，低于均值4.1，退费倾向标记2例，需深入了解原因。', assignedTo: '李随访', status: '跟进中', priority: '高', createdAt: '2026-06-10', updatedAt: '2026-06-14', relatedStoreId: 'S005', relatedCaseId: null, relatedType: '' },
+  { id: 'SN007', title: '何俊杰医生方案变更审核', content: '何俊杰医生在治24例中8例方案变更≥3次，需逐一审核变更合理性。', assignedTo: '王质控', status: '待处理', priority: '高', createdAt: '2026-06-12', updatedAt: '2026-06-12', relatedStoreId: 'S004', relatedCaseId: null, relatedType: '方案多次变更' },
+  { id: 'SN008', title: '月度附件丢失率汇总', content: '5月全部门店附件丢失率3.8%，较4月上升0.6个百分点，需持续关注趋势。', assignedTo: '张主管', status: '已关闭', priority: '低', createdAt: '2026-06-01', updatedAt: '2026-06-08', relatedStoreId: null, relatedCaseId: null, relatedType: '附件丢失' },
 ]
 
 export const qualityCheckItems: QualityCheckItem[] = [

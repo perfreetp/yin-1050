@@ -1,7 +1,7 @@
-import { useState, Fragment } from 'react'
-import { Plus, Download, FileCheck, ClipboardList, HardDrive } from 'lucide-react'
+import { useState, useMemo, Fragment } from 'react'
+import { Plus, Download, FileCheck, ClipboardList, HardDrive, Filter } from 'lucide-react'
 import { qualityCheckItems, stores, getStoreName } from '@/utils/mockData'
-import type { SupervisionStatus, Priority } from '@/types'
+import type { SupervisionStatus, Priority, AnomalyType, ExportRecord } from '@/types'
 import { useAppStore } from '@/store/useAppStore'
 import { cn } from '@/lib/utils'
 
@@ -12,26 +12,42 @@ const tabList = [
 ]
 
 const statusBadgeMap: Record<SupervisionStatus, string> = {
-  '待处理': 'badge-warn',
-  '跟进中': 'badge-brand',
-  '已关闭': 'badge-success',
+  '待处理': 'badge-warn', '跟进中': 'badge-brand', '已关闭': 'badge-success',
 }
-
-const priorityColor: Record<Priority, string> = {
-  '高': 'text-danger-400',
-  '中': 'text-warn-400',
-  '低': 'text-surface-500',
-}
+const priorityColor: Record<Priority, string> = { '高': 'text-danger-400', '中': 'text-warn-400', '低': 'text-surface-500' }
+const ANOMALY_TYPES: AnomalyType[] = ['附件丢失', '托槽脱落', '照片缺失', '复诊记录缺项', '方案多次变更']
 
 export default function Reports() {
-  const [activeTab, setActiveTab] = useState(0)
-  const { supervisionNotes, updateSupervisionNote, addSupervisionNote } = useAppStore()
+  const [activeTab, setActiveTab] = useState(1)
+  const { supervisionNotes, updateSupervisionNote, addSupervisionNote, exportHistory, addExportRecord } = useAppStore()
+
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ title: '', content: '', assignedTo: '', priority: '中' as Priority })
-  const [exportType, setExportType] = useState('病例数据')
+  const [form, setForm] = useState({
+    title: '', content: '', assignedTo: '', priority: '中' as Priority,
+    relatedStoreId: '' as string, relatedCaseId: '' as string, relatedType: '' as AnomalyType | '',
+  })
+
+  const [filterAssignee, setFilterAssignee] = useState('')
+  const [filterStatus, setFilterStatus] = useState<SupervisionStatus | ''>('')
+  const [filterStore, setFilterStore] = useState('')
+
+  const [exportType, setExportType] = useState('质控清单')
   const [exportStore, setExportStore] = useState('all')
   const [exportRange, setExportRange] = useState({ start: '2026-01-01', end: '2026-06-16' })
   const [exportFormat, setExportFormat] = useState('Excel')
+
+  const allAssignees = useMemo(() => [...new Set(supervisionNotes.map(n => n.assignedTo))], [supervisionNotes])
+
+  const filteredNotes = useMemo(() => {
+    return supervisionNotes.filter(n => {
+      if (filterAssignee && n.assignedTo !== filterAssignee) return false
+      if (filterStatus && n.status !== filterStatus) return false
+      if (filterStore && n.relatedStoreId !== filterStore) return false
+      return true
+    })
+  }, [supervisionNotes, filterAssignee, filterStatus, filterStore])
+
+  const openCount = supervisionNotes.filter(n => n.status !== '已关闭').length
 
   const grouped = qualityCheckItems.reduce((acc, q) => {
     const key = `${q.category}|${q.item}|${q.standard}`
@@ -39,7 +55,6 @@ export default function Reports() {
     acc[key].byStore[q.storeId] = q.status
     return acc
   }, {} as Record<string, { category: string; item: string; standard: string; byStore: Record<string, string> }>)
-
   const rows = Object.values(grouped)
   const categories = [...new Set(rows.map(r => r.category))]
   const summary = stores.map(s => {
@@ -48,23 +63,45 @@ export default function Reports() {
     return { id: s.id, rate: items.length ? Math.round((passed / items.length) * 100) : 0 }
   })
 
-  const handleAdd = () => {
+  const handleAddNote = () => {
     if (!form.title || !form.content) return
     addSupervisionNote({
-      id: `SN${Date.now()}`, ...form, status: '待处理',
+      id: `SN${Date.now()}`,
+      title: form.title,
+      content: form.content,
+      assignedTo: form.assignedTo || '未指派',
+      status: '待处理',
+      priority: form.priority,
       createdAt: new Date().toISOString().slice(0, 10),
-      updatedAt: new Date().toISOString().slice(0, 10), relatedStoreId: null,
+      updatedAt: new Date().toISOString().slice(0, 10),
+      relatedStoreId: form.relatedStoreId || null,
+      relatedCaseId: form.relatedCaseId || null,
+      relatedType: form.relatedType,
     })
-    setForm({ title: '', content: '', assignedTo: '', priority: '中' })
+    setForm({ title: '', content: '', assignedTo: '', priority: '中', relatedStoreId: '', relatedCaseId: '', relatedType: '' })
     setShowForm(false)
   }
 
-  const exportHistory = [
-    { name: '病例数据_全部门店_2026-06.xlsx', date: '2026-06-14 14:32', format: 'Excel' },
-    { name: '质控清单_朝阳门店_2026-06.pdf', date: '2026-06-12 09:15', format: 'PDF' },
-    { name: '异常记录_浦东店_2026-05.xlsx', date: '2026-06-10 16:48', format: 'Excel' },
-    { name: '回访记录_全部门店_2026-05.pdf', date: '2026-06-08 11:20', format: 'PDF' },
-  ]
+  const handleExport = () => {
+    const storeLabel = exportStore === 'all' ? '全部门店' : getStoreName(exportStore)
+    const ext = exportFormat === 'Excel' ? '.xlsx' : '.pdf'
+    const startMonth = exportRange.start.slice(0, 7)
+    const endMonth = exportRange.end.slice(0, 7)
+    const dateLabel = startMonth === endMonth ? startMonth : `${startMonth}_${endMonth}`
+    const name = `${exportType}_${storeLabel}_${dateLabel}${ext}`
+    const now = new Date()
+    const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+    const record: ExportRecord = {
+      id: `EXP${Date.now()}`,
+      name,
+      date: dateStr,
+      format: exportFormat,
+      dataType: exportType,
+      storeId: exportStore,
+      dateRange: { start: exportRange.start, end: exportRange.end },
+    }
+    addExportRecord(record)
+  }
 
   return (
     <div className="space-y-6">
@@ -74,6 +111,7 @@ export default function Reports() {
             className={cn('px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2',
               activeTab === i ? 'bg-brand-500 text-white' : 'text-surface-400 hover:text-surface-200')}>
             <t.icon size={16} />{t.label}
+            {i === 1 && openCount > 0 && <span className="bg-danger-500 text-white text-[10px] px-1.5 py-0.5 rounded-full leading-none">{openCount}</span>}
           </button>
         ))}
       </div>
@@ -87,9 +125,7 @@ export default function Reports() {
                 <th className="text-left py-3 px-3 text-surface-400 font-medium w-28">类别</th>
                 <th className="text-left py-3 px-3 text-surface-400 font-medium">检查项</th>
                 <th className="text-left py-3 px-3 text-surface-400 font-medium w-24">标准</th>
-                {stores.map(s => (
-                  <th key={s.id} className="text-center py-3 px-2 text-surface-400 font-medium whitespace-nowrap">{getStoreName(s.id)}</th>
-                ))}
+                {stores.map(s => <th key={s.id} className="text-center py-3 px-2 text-surface-400 font-medium whitespace-nowrap">{getStoreName(s.id)}</th>)}
               </tr>
             </thead>
             <tbody>
@@ -124,9 +160,7 @@ export default function Reports() {
                 <td colSpan={3} className="py-3 px-3 text-surface-300">达标率</td>
                 {summary.map(s => (
                   <td key={s.id} className={cn('text-center py-3 px-2 font-semibold',
-                    s.rate >= 80 ? 'text-success-400' : s.rate >= 50 ? 'text-warn-400' : 'text-danger-400')}>
-                    {s.rate}%
-                  </td>
+                    s.rate >= 80 ? 'text-success-400' : s.rate >= 50 ? 'text-warn-400' : 'text-danger-400')}>{s.rate}%</td>
                 ))}
               </tr>
             </tbody>
@@ -136,11 +170,37 @@ export default function Reports() {
 
       {activeTab === 1 && (
         <div className="space-y-4">
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center flex-wrap gap-3">
             <h2 className="section-title">督办备注</h2>
             <button className="btn-primary flex items-center gap-1.5" onClick={() => setShowForm(!showForm)}>
               <Plus size={16} />新增督办
             </button>
+          </div>
+
+          <div className="card">
+            <div className="flex items-center gap-2 mb-3">
+              <Filter size={14} className="text-surface-400" />
+              <span className="text-xs text-surface-400">筛选</span>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <select value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)}
+                className="bg-surface-900 border border-surface-600 rounded-lg px-3 py-1.5 text-sm text-surface-200 focus:outline-none focus:border-brand-500">
+                <option value="">全部负责人</option>
+                {allAssignees.map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
+              <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as SupervisionStatus | '')}
+                className="bg-surface-900 border border-surface-600 rounded-lg px-3 py-1.5 text-sm text-surface-200 focus:outline-none focus:border-brand-500">
+                <option value="">全部状态</option>
+                <option value="待处理">待处理</option><option value="跟进中">跟进中</option><option value="已关闭">已关闭</option>
+              </select>
+              <select value={filterStore} onChange={e => setFilterStore(e.target.value)}
+                className="bg-surface-900 border border-surface-600 rounded-lg px-3 py-1.5 text-sm text-surface-200 focus:outline-none focus:border-brand-500">
+                <option value="">全部门店</option>
+                {stores.map(s => <option key={s.id} value={s.id}>{getStoreName(s.id)}</option>)}
+              </select>
+              <button onClick={() => { setFilterAssignee(''); setFilterStatus(''); setFilterStore('') }}
+                className="text-xs text-surface-400 hover:text-surface-200 transition-colors self-center">重置筛选</button>
+            </div>
           </div>
 
           {showForm && (
@@ -149,20 +209,36 @@ export default function Reports() {
                 placeholder="标题" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
               <textarea className="w-full bg-surface-900 border border-surface-600 rounded-lg px-3 py-2 text-sm text-surface-100 placeholder-surface-500 focus:outline-none focus:border-brand-500 resize-none"
                 rows={3} placeholder="内容" value={form.content} onChange={e => setForm(f => ({ ...f, content: e.target.value }))} />
-              <div className="flex gap-3">
-                <input className="flex-1 bg-surface-900 border border-surface-600 rounded-lg px-3 py-2 text-sm text-surface-100 placeholder-surface-500 focus:outline-none focus:border-brand-500"
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <input className="bg-surface-900 border border-surface-600 rounded-lg px-3 py-2 text-sm text-surface-100 placeholder-surface-500 focus:outline-none focus:border-brand-500"
                   placeholder="负责人" value={form.assignedTo} onChange={e => setForm(f => ({ ...f, assignedTo: e.target.value }))} />
                 <select className="bg-surface-900 border border-surface-600 rounded-lg px-3 py-2 text-sm text-surface-100 focus:outline-none focus:border-brand-500"
                   value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value as Priority }))}>
                   <option value="高">高优先</option><option value="中">中优先</option><option value="低">低优先</option>
                 </select>
-                <button className="btn-primary" onClick={handleAdd}>提交</button>
+                <select className="bg-surface-900 border border-surface-600 rounded-lg px-3 py-2 text-sm text-surface-100 focus:outline-none focus:border-brand-500"
+                  value={form.relatedStoreId} onChange={e => setForm(f => ({ ...f, relatedStoreId: e.target.value }))}>
+                  <option value="">关联门店</option>
+                  {stores.map(s => <option key={s.id} value={s.id}>{getStoreName(s.id)}</option>)}
+                </select>
+                <input className="bg-surface-900 border border-surface-600 rounded-lg px-3 py-2 text-sm text-surface-100 placeholder-surface-500 focus:outline-none focus:border-brand-500"
+                  placeholder="关联病例ID" value={form.relatedCaseId} onChange={e => setForm(f => ({ ...f, relatedCaseId: e.target.value }))} />
+                <select className="bg-surface-900 border border-surface-600 rounded-lg px-3 py-2 text-sm text-surface-100 focus:outline-none focus:border-brand-500"
+                  value={form.relatedType} onChange={e => setForm(f => ({ ...f, relatedType: e.target.value as AnomalyType | '' }))}>
+                  <option value="">问题类型</option>
+                  {ANOMALY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              <div className="flex justify-end gap-2">
+                <button onClick={() => setShowForm(false)} className="btn-secondary">取消</button>
+                <button onClick={handleAddNote} className="btn-primary">提交</button>
               </div>
             </div>
           )}
 
           <div className="space-y-3">
-            {supervisionNotes.map(note => (
+            {filteredNotes.length === 0 && <div className="text-sm text-surface-500 text-center py-8">无匹配的督办备注</div>}
+            {filteredNotes.map(note => (
               <div key={note.id} className="card flex gap-4">
                 <div className={cn('w-0.5 rounded-full flex-shrink-0',
                   note.status === '待处理' ? 'bg-warn-500' : note.status === '跟进中' ? 'bg-brand-500' : 'bg-success-500')} />
@@ -171,13 +247,15 @@ export default function Reports() {
                     <span className="font-medium text-surface-100">{note.title}</span>
                     <span className={statusBadgeMap[note.status]}>{note.status}</span>
                     <span className={cn('text-xs font-medium', priorityColor[note.priority])}>{note.priority}优先</span>
+                    {note.relatedType && <span className="badge-brand">{note.relatedType}</span>}
                   </div>
                   <p className="text-sm text-surface-400 mb-2">{note.content}</p>
-                  <div className="flex items-center gap-4 text-xs text-surface-500">
+                  <div className="flex items-center gap-4 text-xs text-surface-500 flex-wrap">
                     <span>负责人: {note.assignedTo}</span>
                     <span>创建: {note.createdAt}</span>
                     <span>更新: {note.updatedAt}</span>
-                    {note.relatedStoreId && <span className="text-brand-400">{getStoreName(note.relatedStoreId)}</span>}
+                    {note.relatedStoreId && <span className="text-brand-400">门店: {getStoreName(note.relatedStoreId)}</span>}
+                    {note.relatedCaseId && <span className="text-surface-400">病例: {note.relatedCaseId}</span>}
                   </div>
                 </div>
                 <select className="bg-surface-900 border border-surface-700 rounded px-2 py-1 text-xs text-surface-300 self-start focus:outline-none focus:border-brand-500"
@@ -199,7 +277,7 @@ export default function Reports() {
               <label className="block text-sm text-surface-400 mb-1.5">数据类型</label>
               <select className="w-full bg-surface-900 border border-surface-600 rounded-lg px-3 py-2 text-sm text-surface-100 focus:outline-none focus:border-brand-500"
                 value={exportType} onChange={e => setExportType(e.target.value)}>
-                <option>病例数据</option><option>异常记录</option><option>回访记录</option><option>质控清单</option>
+                <option>质控清单</option><option>异常记录</option><option>回访记录</option>
               </select>
             </div>
             <div>
@@ -232,16 +310,17 @@ export default function Reports() {
                 ))}
               </div>
             </div>
-            <button className="btn-primary w-full flex items-center justify-center gap-2">
+            <button onClick={handleExport} className="btn-primary w-full flex items-center justify-center gap-2">
               <Download size={16} />导出数据
             </button>
           </div>
 
           <div className="card">
             <h2 className="section-title mb-4">最近导出</h2>
+            {exportHistory.length === 0 && <div className="text-sm text-surface-500 text-center py-8">暂无导出记录</div>}
             <div className="space-y-0">
-              {exportHistory.map((item, i) => (
-                <div key={i} className="flex items-center justify-between py-3 border-b border-surface-700/50 last:border-0">
+              {exportHistory.map(item => (
+                <div key={item.id} className="flex items-center justify-between py-3 border-b border-surface-700/50 last:border-0">
                   <div className="min-w-0">
                     <p className="text-sm text-surface-200 truncate">{item.name}</p>
                     <p className="text-xs text-surface-500 mt-0.5">{item.date}</p>
